@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>冰櫃庫存管理</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card2: #334155;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-dark: #0ea5e9;
+      --danger: #f87171;
+      --warning: #fbbf24;
+      --success: #4ade80;
+      --border: #475569;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      padding-bottom: 80px;
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .icon-btn:active {
+      background: var(--card2);
+    }
+
+    /* Search & Filter */
+    .controls {
+      padding: 12px 16px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .search-box {
+      position: relative;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 12px 16px 12px 42px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+    }
+
+    .search-box input:focus {
+      border-color: var(--primary);
+    }
+
+    .search-box::before {
+      content: "🔍";
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.95rem;
+      opacity: 0.7;
+    }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .filter-chip {
+      flex-shrink: 0;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      font-size: 0.875rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+
+    .filter-chip.active {
+      background: var(--primary);
+      color: #0f172a;
+      border-color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 12px 16px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 12px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .stat-value.warning { color: var(--warning); }
+    .stat-value.danger { color: var(--danger); }
+
+    /* Item List */
+    .list {
+      padding: 0 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .item-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      transition: transform 0.1s;
+    }
+
+    .item-card:active {
+      transform: scale(0.985);
+    }
+
+    .item-left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-name {
+      font-weight: 600;
+      font-size: 1.05rem;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .item-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .badge-cat {
+      background: #1e3a5f;
+      color: #7dd3fc;
+    }
+
+    .badge-qty {
+      background: #1e3a2f;
+      color: #86efac;
+    }
+
+    .badge-exp {
+      background: #3f2e1e;
+      color: #fcd34d;
+    }
+
+    .badge-exp.expired {
+      background: #3f1e1e;
+      color: #fca5a5;
+    }
+
+    .badge-exp.soon {
+      background: #3f351e;
+      color: #fde68a;
+    }
+
+    .item-note {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .item-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .action-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: none;
+      background: var(--card2);
+      color: var(--text);
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .action-btn.delete {
+      background: #3f1e1e;
+      color: #fca5a5;
+    }
+
+    /* Empty state */
+    .empty {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+
+    /* Floating Add Button */
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #0f172a;
+      border: none;
+      font-size: 1.8rem;
+      font-weight: 300;
+      box-shadow: 0 8px 24px rgba(14, 165, 233, 0.4);
+      cursor: pointer;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s;
+    }
+
+    .fab:active {
+      transform: scale(0.92);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 100;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--card);
+      width: 100%;
+      max-width: 480px;
+      border-radius: 24px 24px 0 0;
+      padding: 20px 20px 32px;
+      max-height: 90dvh;
+      overflow-y: auto;
+      animation: slideUp 0.25s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .close-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: none;
+      background: var(--card2);
+      color: var(--text);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: var(--primary);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px;
+      border-radius: 14px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #0f172a;
+    }
+
+    .btn-secondary {
+      background: var(--card2);
+      color: var(--text);
+    }
+
+    .btn-danger {
+      background: #3f1e1e;
+      color: #fca5a5;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--card2);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      opacity: 0;
+      transition: all 0.25s;
+      z-index: 200;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Sort select */
+    .sort-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px 8px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .sort-row select {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-top">
+      <h1>🧊 冰櫃庫存</h1>
+      <div class="header-actions">
+        <button class="icon-btn" id="btnExport" title="匯出資料">📤</button>
+        <button class="icon-btn" id="btnImport" title="匯入資料">📥</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="search-box">
+      <input type="search" id="searchInput" placeholder="搜尋食材名稱或備註..." autocomplete="off" />
+    </div>
+    <div class="filters" id="filterBar">
+      <button class="filter-chip active" data-cat="all">全部</button>
+      <button class="filter-chip" data-cat="肉類">肉類</button>
+      <button class="filter-chip" data-cat="海鮮">海鮮</button>
+      <button class="filter-chip" data-cat="蔬菜">蔬菜</button>
+      <button class="filter-chip" data-cat="水果">水果</button>
+      <button class="filter-chip" data-cat="主食">主食</button>
+      <button class="filter-chip" data-cat="冷凍食品">冷凍食品</button>
+      <button class="filter-chip" data-cat="其他">其他</button>
+    </div>
+  </div>
+
+  <div class="stats" id="stats">
+    <div class="stat-card">
+      <div class="stat-value" id="statTotal">0</div>
+      <div class="stat-label">總品項</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value warning" id="statSoon">0</div>
+      <div class="stat-label">7天內到期</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value danger" id="statExpired">0</div>
+      <div class="stat-label">已過期</div>
+    </div>
+  </div>
+
+  <div class="sort-row">
+    <span>排序：</span>
+    <select id="sortSelect">
+      <option value="expiry">有效期限（近→遠）</option>
+      <option value="name">名稱</option>
+      <option value="added">放入日期（新→舊）</option>
+      <option value="category">分類</option>
+    </select>
+  </div>
+
+  <div class="list" id="itemList"></div>
+
+  <button class="fab" id="btnAdd" title="新增食材">+</button>
+
+  <!-- Modal: Add / Edit -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="modalTitle">新增食材</div>
+        <button class="close-btn" id="btnClose">×</button>
+      </div>
+      <form id="itemForm">
+        <input type="hidden" id="editId" />
+        <div class="form-group">
+          <label>食材名稱 *</label>
+          <input type="text" id="name" required placeholder="例如：雞胸肉" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>數量 *</label>
+            <input type="number" id="qty" required min="0" step="any" placeholder="1" />
+          </div>
+          <div class="form-group">
+            <label>單位</label>
+            <input type="text" id="unit" placeholder="包 / 盒 / 公斤" list="unitList" />
+            <datalist id="unitList">
+              <option value="包"></option>
+              <option value="盒"></option>
+              <option value="袋"></option>
+              <option value="公斤"></option>
+              <option value="公克"></option>
+              <option value="個"></option>
+              <option value="份"></option>
+            </datalist>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>分類</label>
+          <select id="category">
+            <option value="肉類">肉類</option>
+            <option value="海鮮">海鮮</option>
+            <option value="蔬菜">蔬菜</option>
+            <option value="水果">水果</option>
+            <option value="主食">主食</option>
+            <option value="冷凍食品">冷凍食品</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>放入日期</label>
+            <input type="date" id="addedDate" />
+          </div>
+          <div class="form-group">
+            <label>有效期限</label>
+            <input type="date" id="expiryDate" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>備註</label>
+          <textarea id="note" rows="2" placeholder="位置、品牌、處理方式..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="btnCancel">取消</button>
+          <button type="submit" class="btn btn-primary" id="btnSave">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <input type="file" id="importFile" accept=".json" style="display:none" />
+
+  <script>
+    const STORAGE_KEY = 'freezer_inventory_v1';
+
+    // State
+    let items = [];
+    let currentFilter = 'all';
+    let searchQuery = '';
+    let sortBy = 'expiry';
+
+    // DOM
+    const itemList = document.getElementById('itemList');
+    const searchInput = document.getElementById('searchInput');
+    const filterBar = document.getElementById('filterBar');
+    const sortSelect = document.getElementById('sortSelect');
+    const modal = document.getElementById('modal');
+    const itemForm = document.getElementById('itemForm');
+    const modalTitle = document.getElementById('modalTitle');
+    const toastEl = document.getElementById('toast');
+
+    // Utils
+    function todayStr() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function daysUntil(dateStr) {
+      if (!dateStr) return null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const target = new Date(dateStr + 'T00:00:00');
+      return Math.ceil((target - today) / 86400000);
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '—';
+      const d = new Date(dateStr + 'T00:00:00');
+      return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+    }
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        items = raw ? JSON.parse(raw) : [];
+      } catch {
+        items = [];
+      }
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
+
+    function showToast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      setTimeout(() => toastEl.classList.remove('show'), 1800);
+    }
+
+    function openModal(item = null) {
+      if (item) {
+        modalTitle.textContent = '編輯食材';
+        document.getElementById('editId').value = item.id;
+        document.getElementById('name').value = item.name;
+        document.getElementById('qty').value = item.qty;
+        document.getElementById('unit').value = item.unit || '';
+        document.getElementById('category').value = item.category || '其他';
+        document.getElementById('addedDate').value = item.addedDate || '';
+        document.getElementById('expiryDate').value = item.expiryDate || '';
+        document.getElementById('note').value = item.note || '';
+      } else {
+        modalTitle.textContent = '新增食材';
+        itemForm.reset();
+        document.getElementById('editId').value = '';
+        document.getElementById('addedDate').value = todayStr();
+        document.getElementById('category').value = '肉類';
+      }
+      modal.classList.add('show');
+    }
+
+    function closeModal() {
+      modal.classList.remove('show');
+    }
+
+    function getFilteredSorted() {
+      let list = [...items];
+
+      if (currentFilter !== 'all') {
+        list = list.filter(i => i.category === currentFilter);
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        list = list.filter(i =>
+          (i.name || '').toLowerCase().includes(q) ||
+          (i.note || '').toLowerCase().includes(q)
+        );
+      }
+
+      list.sort((a, b) => {
+        if (sortBy === 'name') {
+          return (a.name || '').localeCompare(b.name || '', 'zh-Hant');
+        }
+        if (sortBy === 'added') {
+          return (b.addedDate || '').localeCompare(a.addedDate || '');
+        }
+        if (sortBy === 'category') {
+          return (a.category || '').localeCompare(b.category || '', 'zh-Hant') ||
+                 (a.name || '').localeCompare(b.name || '', 'zh-Hant');
+        }
+        // expiry (default): nulls last, soonest first
+        const da = a.expiryDate || '9999-12-31';
+        const db = b.expiryDate || '9999-12-31';
+        return da.localeCompare(db);
+      });
+
+      return list;
+    }
+
+    function renderStats() {
+      const total = items.length;
+      let soon = 0, expired = 0;
+      items.forEach(i => {
+        const d = daysUntil(i.expiryDate);
+        if (d === null) return;
+        if (d < 0) expired++;
+        else if (d <= 7) soon++;
+      });
+      document.getElementById('statTotal').textContent = total;
+      document.getElementById('statSoon').textContent = soon;
+      document.getElementById('statExpired').textContent = expired;
+    }
+
+    function renderList() {
+      const list = getFilteredSorted();
+      renderStats();
+
+      if (list.length === 0) {
+        itemList.innerHTML = `
+          <div class="empty">
+            <div class="empty-icon">🧊</div>
+            <div>${items.length === 0 ? '冰櫃目前是空的<br>點右下角 + 開始新增' : '沒有符合條件的食材'}</div>
+          </div>`;
+        return;
+      }
+
+      itemList.innerHTML = list.map(item => {
+        const days = daysUntil(item.expiryDate);
+        let expClass = '';
+        let expText = formatDate(item.expiryDate);
+        if (days !== null) {
+          if (days < 0) {
+            expClass = 'expired';
+            expText = `已過期 ${Math.abs(days)} 天`;
+          } else if (days === 0) {
+            expClass = 'soon';
+            expText = '今天到期';
+          } else if (days <= 7) {
+            expClass = 'soon';
+            expText = `還有 ${days} 天`;
+          } else {
+            expText = formatDate(item.expiryDate);
+          }
+        }
+
+        return `
+          <div class="item-card" data-id="${item.id}">
+            <div class="item-left">
+              <div class="item-name">${escapeHtml(item.name)}</div>
+              <div class="item-meta">
+                <span class="badge badge-cat">${escapeHtml(item.category || '其他')}</span>
+                <span class="badge badge-qty">${item.qty}${item.unit ? ' ' + escapeHtml(item.unit) : ''}</span>
+                ${item.expiryDate ? `<span class="badge badge-exp ${expClass}">📅 ${expText}</span>` : ''}
+              </div>
+              ${item.note ? `<div class="item-note">${escapeHtml(item.note)}</div>` : ''}
+            </div>
+            <div class="item-actions">
+              <button class="action-btn edit-btn" data-id="${item.id}" title="編輯">✏️</button>
+              <button class="action-btn delete delete-btn" data-id="${item.id}" title="刪除">🗑️</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&')
+        .replace(/</g, '<')
+        .replace(/>/g, '>')
+        .replace(/"/g, '"');
+    }
+
+    // Events
+    document.getElementById('btnAdd').addEventListener('click', () => openModal());
+
+    document.getElementById('btnClose').addEventListener('click', closeModal);
+    document.getElementById('btnCancel').addEventListener('click', closeModal);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    itemForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editId').value;
+      const data = {
+        name: document.getElementById('name').value.trim(),
+        qty: parseFloat(document.getElementById('qty').value) || 0,
+        unit: document.getElementById('unit').value.trim(),
+        category: document.getElementById('category').value,
+        addedDate: document.getElementById('addedDate').value || todayStr(),
+        expiryDate: document.getElementById('expiryDate').value || '',
+        note: document.getElementById('note').value.trim()
+      };
+
+      if (!data.name) return;
+
+      if (id) {
+        const idx = items.findIndex(i => i.id === id);
+        if (idx !== -1) {
+          items[idx] = { ...items[idx], ...data };
+          showToast('已更新');
+        }
+      } else {
+        items.push({
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+          ...data
+        });
+        showToast('已新增');
+      }
+      save();
+      closeModal();
+      renderList();
+    });
+
+    itemList.addEventListener('click', (e) => {
+      const editBtn = e.target.closest('.edit-btn');
+      const delBtn = e.target.closest('.delete-btn');
+      if (editBtn) {
+        const item = items.find(i => i.id === editBtn.dataset.id);
+        if (item) openModal(item);
+      }
+      if (delBtn) {
+        if (confirm('確定要刪除這個食材嗎？')) {
+          items = items.filter(i => i.id !== delBtn.dataset.id);
+          save();
+          renderList();
+          showToast('已刪除');
+        }
+      }
+    });
+
+    filterBar.addEventListener('click', (e) => {
+      const chip = e.target.closest('.filter-chip');
+      if (!chip) return;
+      filterBar.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentFilter = chip.dataset.cat;
+      renderList();
+    });
+
+    searchInput.addEventListener('input', () => {
+      searchQuery = searchInput.value;
+      renderList();
+    });
+
+    sortSelect.addEventListener('change', () => {
+      sortBy = sortSelect.value;
+      renderList();
+    });
+
+    // Export / Import
+    document.getElementById('btnExport').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `冰櫃庫存_${todayStr()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('已匯出');
+    });
+
+    document.getElementById('btnImport').addEventListener('click', () => {
+      document.getElementById('importFile').click();
+    });
+
+    document.getElementById('importFile').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!Array.isArray(data)) throw new Error('格式錯誤');
+          if (confirm(`確定要匯入 ${data.length} 筆資料嗎？\n（會覆蓋現有資料）`)) {
+            items = data.map(d => ({
+              id: d.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+              name: d.name || '未命名',
+              qty: d.qty ?? 1,
+              unit: d.unit || '',
+              category: d.category || '其他',
+              addedDate: d.addedDate || todayStr(),
+              expiryDate: d.expiryDate || '',
+              note: d.note || ''
+            }));
+            save();
+            renderList();
+            showToast('匯入完成');
+          }
+        } catch {
+          alert('匯入失敗，請確認是正確的 JSON 檔');
+        }
+        e.target.value = '';
+      };
+      reader.readAsText(file);
+    });
+
+    // Init
+    load();
+    renderList();
+  </script>
+</body>
+</html>
