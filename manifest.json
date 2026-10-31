@@ -1,0 +1,18 @@
+{
+  "name": "冰櫃庫存管理",
+  "short_name": "冰櫃庫存",
+  "description": "家用冰櫃食材庫存管理",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
