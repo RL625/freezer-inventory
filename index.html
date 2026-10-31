@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#0f172a" />
   <title>冰櫃庫存管理</title>
   <link rel="manifest" href="manifest.json" />
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     :root {
       --bg: #0f172a;
@@ -493,6 +494,62 @@
       border-radius: 8px;
       font-size: 0.85rem;
     }
+
+    /* Scanner */
+    .scan-btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px dashed var(--primary);
+      background: transparent;
+      color: var(--primary);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .scan-btn:active { background: rgba(56, 189, 248, 0.1); }
+
+    #scanner-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 300;
+      display: none;
+      flex-direction: column;
+    }
+    #scanner-overlay.show { display: flex; }
+    #scanner-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(15,23,42,0.95);
+      color: #fff;
+    }
+    #scanner-header button {
+      background: var(--card2);
+      border: none;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
+    #reader {
+      flex: 1;
+      width: 100%;
+    }
+    #scanner-hint {
+      text-align: center;
+      padding: 12px;
+      color: #94a3b8;
+      font-size: 0.85rem;
+      background: #0f172a;
+    }
   </style>
 </head>
 <body>
@@ -560,9 +617,14 @@
       </div>
       <form id="itemForm">
         <input type="hidden" id="editId" />
+        <button type="button" class="scan-btn" id="btnScan">📷 掃描條碼</button>
         <div class="form-group">
           <label>食材名稱 *</label>
           <input type="text" id="name" required placeholder="例如：雞胸肉" />
+        </div>
+        <div class="form-group">
+          <label>條碼（選填）</label>
+          <input type="text" id="barcode" placeholder="掃描後自動填入" />
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -615,6 +677,16 @@
         </div>
       </form>
     </div>
+  </div>
+
+  <!-- Scanner Overlay -->
+  <div id="scanner-overlay">
+    <div id="scanner-header">
+      <span>掃描商品條碼</span>
+      <button type="button" id="btnStopScan">關閉</button>
+    </div>
+    <div id="reader"></div>
+    <div id="scanner-hint">請將條碼對準框內，保持穩定</div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -683,6 +755,7 @@
         modalTitle.textContent = '編輯食材';
         document.getElementById('editId').value = item.id;
         document.getElementById('name').value = item.name;
+        document.getElementById('barcode').value = item.barcode || '';
         document.getElementById('qty').value = item.qty;
         document.getElementById('unit').value = item.unit || '';
         document.getElementById('category').value = item.category || '其他';
@@ -693,6 +766,7 @@
         modalTitle.textContent = '新增食材';
         itemForm.reset();
         document.getElementById('editId').value = '';
+        document.getElementById('barcode').value = '';
         document.getElementById('addedDate').value = todayStr();
         document.getElementById('category').value = '肉類';
       }
@@ -827,6 +901,7 @@
       const id = document.getElementById('editId').value;
       const data = {
         name: document.getElementById('name').value.trim(),
+        barcode: document.getElementById('barcode').value.trim(),
         qty: parseFloat(document.getElementById('qty').value) || 0,
         unit: document.getElementById('unit').value.trim(),
         category: document.getElementById('category').value,
@@ -919,6 +994,7 @@
             items = data.map(d => ({
               id: d.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
               name: d.name || '未命名',
+              barcode: d.barcode || '',
               qty: d.qty ?? 1,
               unit: d.unit || '',
               category: d.category || '其他',
@@ -937,6 +1013,69 @@
       };
       reader.readAsText(file);
     });
+
+    // ===== Barcode Scanner =====
+    let html5QrCode = null;
+
+    async function startScanner() {
+      const overlay = document.getElementById('scanner-overlay');
+      overlay.classList.add('show');
+
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
+      }
+
+      const config = {
+        fps: 10,
+        qrbox: { width: 280, height: 160 },
+        aspectRatio: 1.333,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.QR_CODE
+        ]
+      };
+
+      try {
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          config,
+          (decodedText) => {
+            document.getElementById('barcode').value = decodedText;
+            const nameInput = document.getElementById('name');
+            if (!nameInput.value.trim()) {
+              nameInput.value = decodedText;
+            }
+            showToast('已掃描：' + decodedText);
+            stopScanner();
+          },
+          () => {}
+        );
+      } catch (err) {
+        alert('無法開啟相機，請確認已允許相機權限，或改用手動輸入。\n\n錯誤：' + err);
+        stopScanner();
+      }
+    }
+
+    async function stopScanner() {
+      const overlay = document.getElementById('scanner-overlay');
+      overlay.classList.remove('show');
+      if (html5QrCode) {
+        try {
+          const state = html5QrCode.getState();
+          if (state === 2) {
+            await html5QrCode.stop();
+          }
+        } catch (e) {}
+      }
+    }
+
+    document.getElementById('btnScan').addEventListener('click', startScanner);
+    document.getElementById('btnStopScan').addEventListener('click', stopScanner);
 
     // Init
     load();
