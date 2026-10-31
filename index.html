@@ -1,1 +1,266 @@
-PLACEHOLDER_WILL_FAIL
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#0f172a"/>
+<title>冰櫃庫存管理</title>
+<link rel="manifest" href="manifest.json"/>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--card2:#334155;--text:#f1f5f9;--muted:#94a3b8;--primary:#38bdf8;--primary-dark:#0ea5e9;--danger:#f87171;--warning:#fbbf24;--border:#475569}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC","PingFang TC",sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;padding-bottom:80px}
+header{position:sticky;top:0;z-index:50;background:rgba(15,23,42,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 16px}
+.header-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:1.25rem;font-weight:700}
+.header-actions{display:flex;gap:8px}
+.icon-btn{width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:1.1rem;cursor:pointer}
+.icon-btn:active{background:var(--card2)}
+.sync-status{font-size:.7rem;color:var(--muted);text-align:center;padding:4px}
+.sync-status.ok{color:#4ade80}.sync-status.err{color:var(--danger)}.sync-status.syncing{color:var(--warning)}
+.controls{padding:12px 16px 0;display:flex;flex-direction:column;gap:10px}
+.search-box{position:relative}
+.search-box input{width:100%;padding:12px 16px 12px 42px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:1rem;outline:none}
+.search-box input:focus{border-color:var(--primary)}
+.search-box::before{content:"🔍";position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.7}
+.filters{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.filter-chip{flex-shrink:0;padding:8px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:.875rem;cursor:pointer;white-space:nowrap}
+.filter-chip.active{background:var(--primary);color:#0f172a;border-color:var(--primary);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px}
+.stat-card{background:var(--card);border-radius:14px;padding:12px;text-align:center;border:1px solid var(--border)}
+.stat-value{font-size:1.4rem;font-weight:700}.stat-label{font-size:.75rem;color:var(--muted);margin-top:2px}
+.stat-value.warning{color:var(--warning)}.stat-value.danger{color:var(--danger)}
+.list{padding:0 16px 20px;display:flex;flex-direction:column;gap:10px}
+.item-card{background:var(--card);border-radius:16px;padding:14px 16px;border:1px solid var(--border);display:flex;gap:12px;align-items:flex-start}
+.item-left{flex:1;min-width:0}
+.item-name{font-weight:600;font-size:1.05rem;margin-bottom:4px;word-break:break-word}
+.item-meta{display:flex;flex-wrap:wrap;gap:6px 10px;font-size:.8rem;color:var(--muted)}
+.badge{display:inline-flex;padding:2px 8px;border-radius:6px;font-size:.75rem;font-weight:500}
+.badge-cat{background:#1e3a5f;color:#7dd3fc}.badge-qty{background:#1e3a2f;color:#86efac}
+.badge-exp{background:#3f2e1e;color:#fcd34d}.badge-exp.expired{background:#3f1e1e;color:#fca5a5}.badge-exp.soon{background:#3f351e;color:#fde68a}
+.item-note{margin-top:6px;font-size:.8rem;color:var(--muted)}
+.item-actions{display:flex;flex-direction:column;gap:6px}
+.action-btn{width:36px;height:36px;border-radius:10px;border:none;background:var(--card2);color:var(--text);font-size:.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.action-btn.delete{background:#3f1e1e;color:#fca5a5}
+.empty{text-align:center;padding:48px 24px;color:var(--muted)}.empty-icon{font-size:3rem;margin-bottom:12px}
+.fab{position:fixed;bottom:24px;right:20px;width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#0f172a;border:none;font-size:1.8rem;box-shadow:0 8px 24px rgba(14,165,233,.4);cursor:pointer;z-index:40;display:flex;align-items:center;justify-content:center}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;display:none;align-items:flex-end;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:20px 20px 32px;max-height:90dvh;overflow-y:auto;animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-title{font-size:1.2rem;font-weight:700}
+.close-btn{width:36px;height:36px;border-radius:10px;border:none;background:var(--card2);color:var(--text);font-size:1.2rem;cursor:pointer}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:6px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--primary)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-actions{display:flex;gap:10px;margin-top:8px}
+.btn{flex:1;padding:14px;border-radius:14px;border:none;font-size:1rem;font-weight:600;cursor:pointer}
+.btn-primary{background:var(--primary);color:#0f172a}.btn-secondary{background:var(--card2);color:var(--text)}
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card2);color:var(--text);padding:12px 20px;border-radius:12px;font-size:.9rem;opacity:0;transition:all .25s;z-index:200;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.sort-row{display:flex;align-items:center;gap:8px;padding:0 16px 8px;font-size:.85rem;color:var(--muted)}
+.sort-row select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-size:.85rem}
+.scan-btn{width:100%;padding:12px;border-radius:12px;border:1px dashed var(--primary);background:transparent;color:var(--primary);font-size:.95rem;font-weight:600;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px}
+.catalog-btn{width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.9rem;margin-bottom:12px;cursor:pointer}
+#scanner-overlay{position:fixed;inset:0;background:#000;z-index:300;display:none;flex-direction:column}
+#scanner-overlay.show{display:flex}
+#scanner-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(15,23,42,.95);color:#fff}
+#scanner-header button{background:var(--card2);border:none;color:#fff;padding:8px 14px;border-radius:10px;font-size:.9rem}
+#reader{flex:1;width:100%;min-height:240px}
+#scanner-hint{text-align:center;padding:12px;color:#94a3b8;font-size:.85rem;background:#0f172a}
+.catalog-list{max-height:40vh;overflow-y:auto;margin-bottom:12px}
+.catalog-item{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--border);cursor:pointer}
+.catalog-item:active{background:var(--card2)}
+.catalog-item-name{font-weight:600}
+.catalog-item-meta{font-size:.75rem;color:var(--muted);margin-top:2px}
+.catalog-empty{text-align:center;padding:24px;color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<header>
+<div class="header-top">
+<h1>🧊 冰櫃庫存</h1>
+<div class="header-actions">
+<button class="icon-btn" id="btnSync" title="立即同步">🔄</button>
+<button class="icon-btn" id="btnCatalog" title="商品主檔">📋</button>
+<button class="icon-btn" id="btnExport" title="匯出">📤</button>
+<button class="icon-btn" id="btnImport" title="匯入">📥</button>
+</div>
+</div>
+<div class="sync-status" id="syncStatus">尚未同步</div>
+</header>
+<div class="controls">
+<div class="search-box"><input type="search" id="searchInput" placeholder="搜尋食材名稱或備註..." autocomplete="off"/></div>
+<div class="filters" id="filterBar">
+<button class="filter-chip active" data-cat="all">全部</button>
+<button class="filter-chip" data-cat="肉類">肉類</button>
+<button class="filter-chip" data-cat="海鮮">海鮮</button>
+<button class="filter-chip" data-cat="蔬菜">蔬菜</button>
+<button class="filter-chip" data-cat="水果">水果</button>
+<button class="filter-chip" data-cat="主食">主食</button>
+<button class="filter-chip" data-cat="冷凍食品">冷凍食品</button>
+<button class="filter-chip" data-cat="其他">其他</button>
+</div>
+</div>
+<div class="stats">
+<div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">總品項</div></div>
+<div class="stat-card"><div class="stat-value warning" id="statSoon">0</div><div class="stat-label">7天內到期</div></div>
+<div class="stat-card"><div class="stat-value danger" id="statExpired">0</div><div class="stat-label">已過期</div></div>
+</div>
+<div class="sort-row"><span>排序：</span>
+<select id="sortSelect">
+<option value="expiry">有效期限（近→遠）</option>
+<option value="name">名稱</option>
+<option value="added">放入日期（新→舊）</option>
+<option value="category">分類</option>
+</select>
+</div>
+<div class="list" id="itemList"></div>
+<button class="fab" id="btnAdd">+</button>
+
+<div class="modal-overlay" id="modal">
+<div class="modal">
+<div class="modal-header"><div class="modal-title" id="modalTitle">新增食材</div><button class="close-btn" id="btnClose">×</button></div>
+<form id="itemForm">
+<input type="hidden" id="editId"/>
+<button type="button" class="scan-btn" id="btnScan">📷 掃描條碼</button>
+<button type="button" class="catalog-btn" id="btnPickFromCatalog">📋 從商品主檔選擇</button>
+<div class="form-group"><label>食材名稱 *</label><input type="text" id="name" required placeholder="例如：雞胸肉"/></div>
+<div class="form-group"><label>條碼（選填）</label><input type="text" id="barcode" placeholder="掃描後自動填入"/></div>
+<div class="form-row">
+<div class="form-group"><label>數量 *</label><input type="number" id="qty" required min="0" step="any" placeholder="1"/></div>
+<div class="form-group"><label>單位</label><input type="text" id="unit" placeholder="包 / 盒 / 公斤" list="unitList"/><datalist id="unitList"><option value="包"></option><option value="盒"></option><option value="袋"></option><option value="公斤"></option><option value="公克"></option><option value="個"></option><option value="份"></option></datalist></div>
+</div>
+<div class="form-group"><label>分類</label><select id="category"><option value="肉類">肉類</option><option value="海鮮">海鮮</option><option value="蔬菜">蔬菜</option><option value="水果">水果</option><option value="主食">主食</option><option value="冷凍食品">冷凍食品</option><option value="其他">其他</option></select></div>
+<div class="form-row">
+<div class="form-group"><label>放入日期</label><input type="date" id="addedDate"/></div>
+<div class="form-group"><label>有效期限</label><input type="date" id="expiryDate"/></div>
+</div>
+<div class="form-group"><label>備註</label><textarea id="note" rows="2" placeholder="位置、品牌、處理方式..."></textarea></div>
+<div class="form-actions"><button type="button" class="btn btn-secondary" id="btnCancel">取消</button><button type="submit" class="btn btn-primary">儲存</button></div>
+</form>
+</div>
+</div>
+
+<div class="modal-overlay" id="catalogModal">
+<div class="modal">
+<div class="modal-header"><div class="modal-title">商品主檔</div><button class="close-btn" id="btnCloseCatalog">×</button></div>
+<div style="margin-bottom:12px"><input type="search" id="catalogSearch" placeholder="搜尋商品名稱或條碼..." style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:1rem;outline:none"/></div>
+<div class="catalog-list" id="catalogList"></div>
+<button type="button" class="btn btn-primary" id="btnAddToCatalog" style="width:100%">＋ 新增商品到主檔</button>
+</div>
+</div>
+
+<div class="modal-overlay" id="addCatalogModal">
+<div class="modal">
+<div class="modal-header"><div class="modal-title">新增商品到主檔</div><button class="close-btn" id="btnCloseAddCatalog">×</button></div>
+<form id="catalogForm">
+<div class="form-group"><label>商品名稱 *</label><input type="text" id="catName" required placeholder="例如：科克蘭雞胸肉"/></div>
+<div class="form-group"><label>條碼（選填）</label><div style="display:flex;gap:8px"><input type="text" id="catBarcode" placeholder="條碼號碼" style="flex:1"/><button type="button" class="icon-btn" id="btnScanForCatalog">📷</button></div></div>
+<div class="form-row">
+<div class="form-group"><label>預設分類</label><select id="catCategory"><option value="肉類">肉類</option><option value="海鮮">海鮮</option><option value="蔬菜">蔬菜</option><option value="水果">水果</option><option value="主食">主食</option><option value="冷凍食品">冷凍食品</option><option value="其他">其他</option></select></div>
+<div class="form-group"><label>預設單位</label><input type="text" id="catUnit" placeholder="包 / 盒"/></div>
+</div>
+<div class="form-actions"><button type="button" class="btn btn-secondary" id="btnCancelAddCatalog">取消</button><button type="submit" class="btn btn-primary">儲存到主檔</button></div>
+</form>
+</div>
+</div>
+
+<div id="scanner-overlay">
+<div id="scanner-header"><span>掃描商品條碼</span><button type="button" id="btnStopScan">關閉</button></div>
+<div id="reader"></div>
+<div id="scanner-hint">請將條碼對準框內，保持穩定</div>
+</div>
+<div class="toast" id="toast"></div>
+<input type="file" id="importFile" accept=".json" style="display:none"/>
+
+<script>
+const API_URL="https://script.google.com/macros/s/AKfycbzFNV8t9WBR2Q3EbF5rW4GHZ-ok9y8ldKFWC_h7PGGqVaKdIjsjG840ionVV4QnZN26/exec";
+const STORAGE_KEY="freezer_inventory_v1";
+const CATALOG_KEY="freezer_catalog_v1";
+let items=[],catalog=[],currentFilter="all",searchQuery="",sortBy="expiry",syncing=false;
+const itemList=document.getElementById("itemList"),searchInput=document.getElementById("searchInput");
+const filterBar=document.getElementById("filterBar"),sortSelect=document.getElementById("sortSelect");
+const modal=document.getElementById("modal"),itemForm=document.getElementById("itemForm");
+const modalTitle=document.getElementById("modalTitle"),toastEl=document.getElementById("toast");
+const syncStatus=document.getElementById("syncStatus");
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function daysUntil(dateStr){if(!dateStr)return null;const t=new Date();t.setHours(0,0,0,0);return Math.ceil((new Date(dateStr+"T00:00:00")-t)/86400000)}
+function formatDate(dateStr){if(!dateStr)return "—";const d=new Date(dateStr+"T00:00:00");return d.getFullYear()+"/"+(d.getMonth()+1)+"/"+d.getDate()}
+function escapeHtml(s){if(s==null||s==="")return "";const d=document.createElement("div");d.textContent=String(s);return d.innerHTML}
+function showToast(msg){toastEl.textContent=msg;toastEl.classList.add("show");setTimeout(()=>toastEl.classList.remove("show"),1800)}
+function setSyncStatus(text,cls){syncStatus.textContent=text;syncStatus.className="sync-status"+(cls?" "+cls:"")}
+function loadLocal(){try{items=JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]")}catch{items=[]}try{catalog=JSON.parse(localStorage.getItem(CATALOG_KEY)||"[]")}catch{catalog=[]}}
+function saveLocal(){localStorage.setItem(STORAGE_KEY,JSON.stringify(items));localStorage.setItem(CATALOG_KEY,JSON.stringify(catalog))}
+async function pullFromCloud(){setSyncStatus("同步中…","syncing");try{const res=await fetch(API_URL+"?action=all&t="+Date.now());if(!res.ok)throw new Error("HTTP "+res.status);const data=await res.json();items=Array.isArray(data.items)?data.items:[];catalog=Array.isArray(data.catalog)?data.catalog:[];items.forEach(i=>{if(i.qty!==undefined&&i.qty!=="")i.qty=Number(i.qty)});saveLocal();renderList();setSyncStatus("已同步 "+new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}),"ok");return true}catch(err){console.error(err);setSyncStatus("同步失敗，使用本機資料","err");return false}}
+async function pushToCloud(){if(syncing)return;syncing=true;setSyncStatus("上傳中…","syncing");try{const res=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"saveAll",items,catalog})});if(!res.ok)throw new Error("HTTP "+res.status);const data=await res.json();if(!data.ok)throw new Error(data.error||"save failed");setSyncStatus("已同步 "+new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}),"ok")}catch(err){console.error(err);setSyncStatus("上傳失敗，稍後重試","err");showToast("雲端同步失敗")}finally{syncing=false}}
+function schedulePush(){saveLocal();clearTimeout(window._pushTimer);window._pushTimer=setTimeout(pushToCloud,400)}
+function addToCatalog(item){if(item.barcode){const idx=catalog.findIndex(c=>c.barcode===item.barcode);if(idx!==-1){catalog[idx]={...catalog[idx],...item};return}}const idx2=catalog.findIndex(c=>c.name===item.name);if(idx2!==-1){catalog[idx2]={...catalog[idx2],...item};return}catalog.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),...item})}
+function lookupBarcode(barcode){if(!barcode)return null;return catalog.find(c=>c.barcode===barcode)||null}
+function rememberBarcode(barcode,name,category,unit){if(!name)return;addToCatalog({name,barcode:barcode||"",category:category||"其他",unit:unit||""})}
+function openModal(item){if(item){modalTitle.textContent="編輯食材";document.getElementById("editId").value=item.id;document.getElementById("name").value=item.name;document.getElementById("barcode").value=item.barcode||"";document.getElementById("qty").value=item.qty;document.getElementById("unit").value=item.unit||"";document.getElementById("category").value=item.category||"其他";document.getElementById("addedDate").value=item.addedDate||"";document.getElementById("expiryDate").value=item.expiryDate||"";document.getElementById("note").value=item.note||""}else{modalTitle.textContent="新增食材";itemForm.reset();document.getElementById("editId").value="";document.getElementById("barcode").value="";document.getElementById("addedDate").value=todayStr();document.getElementById("category").value="肉類"}modal.classList.add("show")}
+function closeModal(){modal.classList.remove("show")}
+function getFilteredSorted(){let list=[...items];if(currentFilter!=="all")list=list.filter(i=>i.category===currentFilter);if(searchQuery.trim()){const q=searchQuery.trim().toLowerCase();list=list.filter(i=>(i.name||"").toLowerCase().includes(q)||(i.note||"").toLowerCase().includes(q))}list.sort((a,b)=>{if(sortBy==="name")return (a.name||"").localeCompare(b.name||"","zh-Hant");if(sortBy==="added")return (b.addedDate||"").localeCompare(a.addedDate||"");if(sortBy==="category")return (a.category||"").localeCompare(b.category||"","zh-Hant")||(a.name||"").localeCompare(b.name||"","zh-Hant");return (a.expiryDate||"9999-12-31").localeCompare(b.expiryDate||"9999-12-31")});return list}
+function renderStats(){let soon=0,expired=0;items.forEach(i=>{const d=daysUntil(i.expiryDate);if(d===null)return;if(d<0)expired++;else if(d<=7)soon++});document.getElementById("statTotal").textContent=items.length;document.getElementById("statSoon").textContent=soon;document.getElementById("statExpired").textContent=expired}
+function renderList(){const list=getFilteredSorted();renderStats();if(!list.length){itemList.innerHTML='<div class="empty"><div class="empty-icon">🧊</div><div>'+(items.length?"沒有符合條件的食材":"冰櫃目前是空的<br>點右下角 + 開始新增")+"</div></div>";return}itemList.innerHTML=list.map(item=>{const days=daysUntil(item.expiryDate);let expClass="",expText=formatDate(item.expiryDate);if(days!==null){if(days<0){expClass="expired";expText="已過期 "+Math.abs(days)+" 天"}else if(days===0){expClass="soon";expText="今天到期"}else if(days<=7){expClass="soon";expText="還有 "+days+" 天"}}return '<div class="item-card"><div class="item-left"><div class="item-name">'+escapeHtml(item.name)+'</div><div class="item-meta"><span class="badge badge-cat">'+escapeHtml(item.category||"其他")+'</span><span class="badge badge-qty">'+item.qty+(item.unit?" "+escapeHtml(item.unit):"")+"</span>"+(item.expiryDate?'<span class="badge badge-exp '+expClass+'">📅 '+expText+"</span>":"")+"</div>"+(item.note?'<div class="item-note">'+escapeHtml(item.note)+"</div>":"")+'</div><div class="item-actions"><button class="action-btn edit-btn" data-id="'+item.id+'">✏️</button><button class="action-btn delete delete-btn" data-id="'+item.id+'">🗑️</button></div></div>'}).join("")}
+document.getElementById("btnAdd").onclick=()=>openModal();
+document.getElementById("btnClose").onclick=closeModal;
+document.getElementById("btnCancel").onclick=closeModal;
+modal.onclick=e=>{if(e.target===modal)closeModal()};
+itemForm.onsubmit=e=>{e.preventDefault();const id=document.getElementById("editId").value;const data={name:document.getElementById("name").value.trim(),barcode:document.getElementById("barcode").value.trim(),qty:parseFloat(document.getElementById("qty").value)||0,unit:document.getElementById("unit").value.trim(),category:document.getElementById("category").value,addedDate:document.getElementById("addedDate").value||todayStr(),expiryDate:document.getElementById("expiryDate").value||"",note:document.getElementById("note").value.trim(),updatedAt:new Date().toISOString()};if(!data.name)return;if(id){const idx=items.findIndex(i=>i.id===id);if(idx!==-1){items[idx]={...items[idx],...data};showToast("已更新")}}else{items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),...data});showToast("已新增")}if(data.barcode&&data.name)rememberBarcode(data.barcode,data.name,data.category,data.unit);closeModal();renderList();schedulePush()};
+itemList.onclick=e=>{const editBtn=e.target.closest(".edit-btn"),delBtn=e.target.closest(".delete-btn");if(editBtn){const item=items.find(i=>i.id===editBtn.dataset.id);if(item)openModal(item)}if(delBtn&&confirm("確定要刪除這個食材嗎？")){items=items.filter(i=>i.id!==delBtn.dataset.id);renderList();showToast("已刪除");schedulePush()}};
+filterBar.onclick=e=>{const chip=e.target.closest(".filter-chip");if(!chip)return;filterBar.querySelectorAll(".filter-chip").forEach(c=>c.classList.remove("active"));chip.classList.add("active");currentFilter=chip.dataset.cat;renderList()};
+searchInput.oninput=()=>{searchQuery=searchInput.value;renderList()};
+sortSelect.onchange=()=>{sortBy=sortSelect.value;renderList()};
+document.getElementById("btnExport").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify({items,catalog},null,2)],{type:"application/json"}));a.download="冰櫃庫存_"+todayStr()+".json";a.click();showToast("已匯出")};
+document.getElementById("btnImport").onclick=()=>document.getElementById("importFile").click();
+document.getElementById("importFile").onchange=e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);const arr=Array.isArray(data)?data:(data.items||[]);if(!Array.isArray(arr))throw new Error();if(confirm("確定匯入 "+arr.length+" 筆？會覆蓋現有庫存")){items=arr.map(d=>({id:d.id||Date.now().toString(36),name:d.name||"未命名",barcode:d.barcode||"",qty:d.qty??1,unit:d.unit||"",category:d.category||"其他",addedDate:d.addedDate||todayStr(),expiryDate:d.expiryDate||"",note:d.note||""}));if(data.catalog)catalog=data.catalog;renderList();showToast("匯入完成");schedulePush()}}catch{alert("匯入失敗")}e.target.value=""};reader.readAsText(file)};
+
+let html5QrCode=null,scanCallback=null;
+async function startScanner(onResult){
+scanCallback=onResult||null;
+if(typeof Html5Qrcode==="undefined"){alert("條碼掃描函式庫尚未載入，請確認網路連線後重新整理頁面。");return}
+const overlay=document.getElementById("scanner-overlay");
+const reader=document.getElementById("reader");
+const hint=document.getElementById("scanner-hint");
+overlay.classList.add("show");
+hint.textContent="正在開啟相機…";
+try{if(html5QrCode){try{await html5QrCode.stop()}catch(e){}try{html5QrCode.clear()}catch(e){}}}catch(e){}
+reader.innerHTML="";
+html5QrCode=new Html5Qrcode("reader");
+const config={fps:8,qrbox:function(viewW,viewH){const w=Math.min(280,Math.floor(viewW*0.85));const h=Math.min(160,Math.floor(viewH*0.35));return{width:w,height:h}},aspectRatio:1.333,disableFlip:false};
+const onSuccess=text=>{
+if(scanCallback){scanCallback(text)}else{document.getElementById("barcode").value=text;const known=lookupBarcode(text);const nameInput=document.getElementById("name");if(known){nameInput.value=known.name;if(known.category)document.getElementById("category").value=known.category;if(known.unit)document.getElementById("unit").value=known.unit;showToast("已辨識："+known.name)}else{if(!nameInput.value.trim()){nameInput.value="";nameInput.placeholder="請輸入商品名稱（下次會自動記住）"}showToast("新條碼，請輸入名稱後儲存")}}stopScanner()};
+try{
+let cameraIdOrConfig={facingMode:"environment"};
+try{const cameras=await Html5Qrcode.getCameras();if(cameras&&cameras.length){const back=cameras.find(c=>/back|rear|environment|後|后/i.test(c.label||""));cameraIdOrConfig=(back||cameras[cameras.length-1]).id}}catch(e){}
+await html5QrCode.start(cameraIdOrConfig,config,onSuccess,()=>{});
+hint.textContent="請將條碼對準框內，保持穩定"}catch(err){console.error("Camera error:",err);const msg=String(err&&err.message?err.message:err);let tip="無法開啟相機。";if(/NotAllowedError|Permission|denied|許可|權限/i.test(msg)){tip="沒有相機權限。\n\n請到 iPad「設定 → Safari → 相機」允許此網站使用相機，\n或重新整理後再點允許。"}else if(/NotFoundError|DevicesNotFound|no camera/i.test(msg)){tip="找不到可用的相機。"}else if(/NotReadableError|TrackStartError|in use/i.test(msg)){tip="相機正被其他 App 使用，請關閉後再試。"}else{tip="無法開啟相機：\n"+msg+"\n\n請確認使用 Safari，並允許相機權限。"}alert(tip);stopScanner()}}
+async function stopScanner(){document.getElementById("scanner-overlay").classList.remove("show");if(html5QrCode){try{const state=html5QrCode.getState&&html5QrCode.getState();if(state===2||state===3)await html5QrCode.stop()}catch(e){}try{html5QrCode.clear()}catch(e){}}scanCallback=null}
+document.getElementById("btnScan").onclick=()=>startScanner();
+document.getElementById("btnStopScan").onclick=stopScanner;
+
+function renderCatalogList(filter){const listEl=document.getElementById("catalogList");let list=[...catalog];if(filter&&filter.trim()){const q=filter.trim().toLowerCase();list=list.filter(c=>(c.name||"").toLowerCase().includes(q)||(c.barcode||"").includes(q))}if(!list.length){listEl.innerHTML='<div class="catalog-empty">主檔目前是空的<br>點下方按鈕新增常用商品</div>';return}listEl.innerHTML=list.map(c=>'<div class="catalog-item" data-id="'+c.id+'"><div><div class="catalog-item-name">'+escapeHtml(c.name)+'</div><div class="catalog-item-meta">'+(c.category||"")+(c.unit?" · "+c.unit:"")+(c.barcode?" · "+c.barcode:"")+'</div></div><button class="action-btn delete cat-delete" data-id="'+c.id+'">🗑️</button></div>').join("")}
+document.getElementById("btnCatalog").onclick=()=>{document.getElementById("catalogSearch").value="";renderCatalogList();document.getElementById("catalogModal").classList.add("show")};
+document.getElementById("btnCloseCatalog").onclick=()=>document.getElementById("catalogModal").classList.remove("show");
+document.getElementById("catalogModal").onclick=e=>{if(e.target.id==="catalogModal")document.getElementById("catalogModal").classList.remove("show")};
+document.getElementById("catalogSearch").oninput=e=>renderCatalogList(e.target.value);
+document.getElementById("catalogList").onclick=e=>{const del=e.target.closest(".cat-delete");if(del){e.stopPropagation();if(confirm("確定從主檔刪除？")){catalog=catalog.filter(c=>c.id!==del.dataset.id);renderCatalogList(document.getElementById("catalogSearch").value);showToast("已刪除");schedulePush()}return}const row=e.target.closest(".catalog-item");if(!row)return;const item=catalog.find(c=>c.id===row.dataset.id);if(!item)return;document.getElementById("catalogModal").classList.remove("show");openModal();document.getElementById("name").value=item.name;document.getElementById("barcode").value=item.barcode||"";document.getElementById("category").value=item.category||"其他";document.getElementById("unit").value=item.unit||"";showToast("已帶入："+item.name)};
+document.getElementById("btnPickFromCatalog").onclick=()=>{document.getElementById("catalogSearch").value="";renderCatalogList();document.getElementById("catalogModal").classList.add("show")};
+document.getElementById("btnAddToCatalog").onclick=()=>{document.getElementById("catalogForm").reset();document.getElementById("catCategory").value="肉類";document.getElementById("addCatalogModal").classList.add("show")};
+document.getElementById("btnCloseAddCatalog").onclick=()=>document.getElementById("addCatalogModal").classList.remove("show");
+document.getElementById("btnCancelAddCatalog").onclick=()=>document.getElementById("addCatalogModal").classList.remove("show");
+document.getElementById("catalogForm").onsubmit=e=>{e.preventDefault();const name=document.getElementById("catName").value.trim();if(!name)return;addToCatalog({name,barcode:document.getElementById("catBarcode").value.trim(),category:document.getElementById("catCategory").value,unit:document.getElementById("catUnit").value.trim()});document.getElementById("addCatalogModal").classList.remove("show");renderCatalogList(document.getElementById("catalogSearch").value);showToast("已加入主檔："+name);schedulePush()};
+document.getElementById("btnScanForCatalog").onclick=()=>{document.getElementById("addCatalogModal").classList.remove("show");startScanner(text=>{document.getElementById("catBarcode").value=text;showToast("已掃描條碼");document.getElementById("addCatalogModal").classList.add("show")})};
+document.getElementById("btnSync").onclick=()=>pullFromCloud();
+loadLocal();renderList();
+pullFromCloud().then(()=>{setInterval(()=>{if(!document.hidden)pullFromCloud()},30000)});
+</script>
+</body>
+</html>
