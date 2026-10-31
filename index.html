@@ -196,7 +196,7 @@
     function todayStr() { return new Date().toISOString().slice(0, 10); }
     function daysUntil(dateStr) { if (!dateStr) return null; const t = new Date(); t.setHours(0,0,0,0); return Math.ceil((new Date(dateStr + "T00:00:00") - t) / 86400000); }
     function formatDate(dateStr) { if (!dateStr) return "—"; const d = new Date(dateStr + "T00:00:00"); return d.getFullYear() + "/" + (d.getMonth()+1) + "/" + d.getDate(); }
-    function escapeHtml(s) { if (!s) return ""; return String(s).replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">").replace(/"/g,"""); }
+    function escapeHtml(s) { if (s == null || s === "") return ""; const d = document.createElement("div"); d.textContent = String(s); return d.innerHTML; }
     function showToast(msg) { toastEl.textContent = msg; toastEl.classList.add("show"); setTimeout(() => toastEl.classList.remove("show"), 1800); }
     function setSyncStatus(text, cls) { syncStatus.textContent = text; syncStatus.className = "sync-status" + (cls ? " " + cls : ""); }
     function loadLocal() { try { items = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { items = []; } try { catalog = JSON.parse(localStorage.getItem(CATALOG_KEY) || "[]"); } catch { catalog = []; } }
